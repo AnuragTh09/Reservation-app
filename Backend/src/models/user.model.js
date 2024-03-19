@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 import AuthRoles from "../utils/authRoles.js";
 import bcrypt from "bcryptjs";
 import config from "../config/index.config.js";
+import JWT from "jsonwebtoken"
 const userSchema = new Schema(
   {
     username: {
@@ -29,7 +30,6 @@ const userSchema = new Schema(
 
     fullName: {
       type: String,
-      required: [true, "Name is required"],
       trim: true,
       index: true,
     },
@@ -54,7 +54,8 @@ const userSchema = new Schema(
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  const password = await bcrypt.hash(this.password, 10);
+  const hashedPassword = await bcrypt.hash(this.password, 10);
+  this.password = hashedPassword;
   next();
 });
 

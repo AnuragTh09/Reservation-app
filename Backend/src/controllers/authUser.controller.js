@@ -2,7 +2,7 @@
 import { User } from "../models/user.model.js";
 import CustomError from "../utils/CustomError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-
+import JWT from 'jsonwebtoken'
 export const cookieOptions = {
   expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
   httpOnly: true,
@@ -53,42 +53,59 @@ export const signup = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  //validation
+  // Validation: Check if email and password are provided
   if (!email || !password) {
-    throw new CustomError("Please fill all details", 400);
+    throw new CustomError("Please provide both email and password", 400); // Error message and status code corrected
   }
 
-  const user = user.findOne({ email: email}).select("+password") // + for password : select = false
-  if(!user) {
-    throw new CustomError("Invalid credentials", 400);
+  // Find the user by email and select the password field (assuming it's hidden by default)
+  const user = await User.findOne({ email: email }).select("+password"); // Finding user by email and selecting the password field
+
+  // Check if user exists
+  if (!user) {
+    throw new CustomError("Invalid credentials", 401); // Error message and status code corrected
   }
 
-  // comparing password
-  
-  const isPasswordMatched = await user.comparePassword(password);
+  try {
+    // Compare the provided password with the stored password
+    const isPasswordMatched = await user.comparePassword(password);
 
-  if(isPasswordMatched){
-    const token = user.getJWTtoken()
-    user.password = undefined
-    res.cookie("token", token, cookieOptions)
-    return res.status(200).json({
+    if (isPasswordMatched) {
+      // Generate JWT token
+      const token = user.getJWTtoken();
+
+      // Remove sensitive data (password) from the user object
+      user.password = undefined;
+
+      // Set token in cookie
+      res.cookie("token", token, cookieOptions);
+
+      // Send success response
+      return res.status(200).json({
         success: true,
-        token, 
-        user
-    })
+        token,
+        user,
+      });
+    } else {
+      throw new CustomError("Password is incorrect", 401); // Error message and status code corrected
+    }
+  } catch (error) {
+    console.log(error)
+    throw new CustomError("An error occurred during password comparison", 500); // Error message and status code corrected
   }
-
-    throw new CustomError("Password is incorrect", 400)
 });
 
-export const logout = asyncHandler(async (req, res) => {
-    res.cookie("token", null, {
-        expires: new Date(Date.now()),
-        httpOnly: true,
-    })
 
-    res.status(200).json({
-        success: true,
-        message: "Logout successfully "
-    })
-}) 
+export const logout = asyncHandler(async (req, res) => {
+  res.cookie("token", null, {
+    expires: new Date(Date.now()),
+    httpOnly: true,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Logout successfully ",
+  });
+});
+
+ 
